@@ -1,4 +1,5 @@
 const SHA256 = require('crypto-js/sha256');
+const colors = require('colors');
 
 class Transaction {
   constructor(from, to, amt) {
@@ -27,7 +28,7 @@ class Block {
       this.hash = this.calculateHash();
     }
 
-    console.log("[ OK ] Block mined: " + this.hash);
+    console.log("[ OK ] ".green + "Block mined: " + this.hash);
   }
 }
 
@@ -54,7 +55,7 @@ class Blockchain {
     const block = new Block(Date.now(), this.pendingTransactions, this.getLatest().hash);
     block.mineBlock(this.difficulty);
 
-    console.log("BY MINER: " + minerAddress);
+    console.log("[INFO] ".cyan + "BY MINER: " + minerAddress + "\n");
     this.chain.push(block);
 
     this.pendingTransactions = [];

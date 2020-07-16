@@ -12,5 +12,5 @@
     "colors": "^1.4.0",
     "crypto-js": "^4.0.0"
   },
-  "repository": ""
+  "repository": "https://github.com/drewrerikson/block.de.git"
 }
