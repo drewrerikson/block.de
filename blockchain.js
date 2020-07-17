@@ -1,11 +1,36 @@
 const SHA256 = require('crypto-js/sha256');
 const colors = require('colors');
+const EC = require('elliptic').ec;
+const ec = new EC('secp256k1'); // basis of btc, can change
 
 class Transaction {
   constructor(from, to, amt) {
     this.from = from;
     this.to = to;
     this.amt = amt;
+  }
+
+  calculateHash(){
+    return SHA256(this.from + this.to + this.amt).toString();
+  }
+
+  signTransaction(key){
+    if (key.getPublic('hex') !== this.from) {
+      throw new Error("[ ER ]".red + " Signature invalid!");
+    }
+
+    const txHash = this.calculateHash();
+    const sign = key.sign(txHash, 'base64');
+    this.signature = sign.toDER('hex');
+  }
+
+  isValid() {
+    if (this.from === null) return true;
+    if (!this.signature || this.signature.length === 0) {
+      throw new Error("[ ER ]".red + " Failed to find signature during transaction validation.");
+    }
+    const publicKey = ec.keyFromPublic(this.from, 'hex');
+    return publicKey.verify(this.calculateHash(), this.signature);
   }
 }
 
@@ -30,12 +55,21 @@ class Block {
 
     console.log("[ OK ] ".green + "Block mined: " + this.hash);
   }
+
+  validateTransactions() {
+    for (const tx of this.transactions){
+      if (!tx.isValid()) {
+        return false;
+      }
+    }
+    return true;
+  }
 }
 
 class Blockchain {
   constructor() {
     this.chain = [this.createGenesis()];
-    this.difficulty = 4; // 5 is good
+    this.difficulty = 4;
     this.pendingTransactions = [];
     this.reward = 100;
   }
@@ -55,13 +89,19 @@ class Blockchain {
     const block = new Block(Date.now(), this.pendingTransactions, this.getLatest().hash);
     block.mineBlock(this.difficulty);
 
-    console.log("[INFO] ".cyan + "BY MINER: " + minerAddress + "\n");
     this.chain.push(block);
 
     this.pendingTransactions = [];
   }
 
-  createTransaction(transaction){
+  addTransaction(transaction){
+    if(!transaction.from || !transaction.to) {
+      throw new Error("[ ER ]".red + "Transaction is missing from/to address.");
+    }
+    if(!transaction.isValid()) {
+      throw new Error("[ ER ]".red + "Cannot add invalid transaction to chain")
+    }
+
     this.pendingTransactions.push(transaction);
   }
 
@@ -88,6 +128,11 @@ class Blockchain {
     for (let i = 1; i < this.chain.length; i++) {
       const current = this.chain[i];
       const previous = this.chain[i - 1];
+
+      if (!current.validateTransactions()) {
+        return false;
+      }
+
       if (current.hash !== current.calculateHash()) {
         return false;
       }
